@@ -15,6 +15,13 @@ def _ensure_id(val: str | None) -> str:
     return val or uuid.uuid4().hex[:16]
 
 
+def _parse_enum(raw: str, enum_class, fallback):
+    try:
+        return enum_class(raw.upper())
+    except ValueError:
+        return fallback
+
+
 def _parse_datetime(val) -> datetime:
     if isinstance(val, datetime):
         return val
@@ -38,17 +45,8 @@ def parse_event(data: dict) -> EventSchema:
 def parse_span(data: dict) -> SpanSchema:
     events = [parse_event(e) for e in data.get("events", [])]
 
-    span_kind_raw = data.get("span_kind", "CHAIN").upper()
-    try:
-        span_kind = SpanKind(span_kind_raw)
-    except ValueError:
-        span_kind = SpanKind.CHAIN
-
-    status_raw = data.get("status", "OK").upper()
-    try:
-        status = SpanStatus(status_raw)
-    except ValueError:
-        status = SpanStatus.UNSET
+    span_kind = _parse_enum(data.get("span_kind", "CHAIN"), SpanKind, SpanKind.CHAIN)
+    status = _parse_enum(data.get("status", "OK"), SpanStatus, SpanStatus.UNSET)
 
     return SpanSchema(
         span_id=_ensure_id(data.get("span_id")),
@@ -68,11 +66,7 @@ def parse_trace(data: dict) -> TraceSchema:
     """Parse a raw trace dict into a validated TraceSchema."""
     spans = [parse_span(s) for s in data.get("spans", [])]
 
-    status_raw = data.get("status", "OK").upper()
-    try:
-        status = SpanStatus(status_raw)
-    except ValueError:
-        status = SpanStatus.UNSET
+    status = _parse_enum(data.get("status", "OK"), SpanStatus, SpanStatus.UNSET)
 
     # Auto-calculate total tokens from LLM spans
     total_tokens = data.get("total_tokens", 0)

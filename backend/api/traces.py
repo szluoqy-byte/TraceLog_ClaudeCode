@@ -10,11 +10,17 @@ from sqlalchemy import func, desc
 from ..database import get_db
 from ..models import (
     TraceRecord, SpanRecord, EventRecord,
-    TraceSchema, TraceListItem, TraceListResponse, TraceDetail,
+    TraceSchema, TraceListItem, TraceListResponse, TraceDetail, SpanStatus,
 )
 from ..parser import parse_trace
 
 router = APIRouter(prefix="/api/v1/traces", tags=["traces"])
+
+
+def _calc_duration_ms(start, end):
+    if start and end:
+        return (end - start).total_seconds() * 1000
+    return None
 
 
 def _save_trace(db: Session, trace: TraceSchema) -> TraceRecord:
@@ -114,23 +120,29 @@ def list_traces(
     query = db.query(TraceRecord)
 
     if status:
-        query = query.filter(TraceRecord.status == status.upper())
+        try:
+            status_val = SpanStatus(status.upper()).value
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid status '{status}'. Must be one of: OK, ERROR, UNSET")
+        query = query.filter(TraceRecord.status == status_val)
     if search:
         query = query.filter(TraceRecord.name.ilike(f"%{search}%"))
 
     total = query.count()
     records = query.order_by(desc(TraceRecord.created_at)).offset(offset).limit(limit).all()
 
+    trace_ids = [r.trace_id for r in records]
+    span_counts = {}
+    if trace_ids:
+        span_counts = dict(
+            db.query(SpanRecord.trace_id, func.count(SpanRecord.span_id))
+            .filter(SpanRecord.trace_id.in_(trace_ids))
+            .group_by(SpanRecord.trace_id)
+            .all()
+        )
+
     traces = []
     for r in records:
-        span_count = db.query(func.count(SpanRecord.span_id)).filter(
-            SpanRecord.trace_id == r.trace_id
-        ).scalar()
-
-        duration_ms = None
-        if r.start_time and r.end_time:
-            duration_ms = (r.end_time - r.start_time).total_seconds() * 1000
-
         traces.append(TraceListItem(
             trace_id=r.trace_id,
             name=r.name,
@@ -139,8 +151,8 @@ def list_traces(
             status=r.status,
             total_tokens=r.total_tokens,
             total_cost=r.total_cost,
-            span_count=span_count,
-            duration_ms=duration_ms,
+            span_count=span_counts.get(r.trace_id, 0),
+            duration_ms=_calc_duration_ms(r.start_time, r.end_time),
             metadata=r.metadata_ or {},
         ))
 
@@ -156,13 +168,15 @@ def get_trace(trace_id: str, db: Session = Depends(get_db)):
 
     spans_raw = db.query(SpanRecord).filter(SpanRecord.trace_id == trace_id).all()
 
+    events_by_span: dict = {}
+    span_ids = [s.span_id for s in spans_raw]
+    if span_ids:
+        for e in db.query(EventRecord).filter(EventRecord.span_id.in_(span_ids)).all():
+            events_by_span.setdefault(e.span_id, []).append(e)
+
     spans = []
     for s in spans_raw:
-        events = db.query(EventRecord).filter(EventRecord.span_id == s.span_id).all()
-        duration_ms = None
-        if s.start_time and s.end_time:
-            duration_ms = (s.end_time - s.start_time).total_seconds() * 1000
-
+        events = events_by_span.get(s.span_id, [])
         spans.append({
             "span_id": s.span_id,
             "parent_span_id": s.parent_span_id,
@@ -170,7 +184,7 @@ def get_trace(trace_id: str, db: Session = Depends(get_db)):
             "span_kind": s.span_kind,
             "start_time": s.start_time.isoformat(),
             "end_time": s.end_time.isoformat() if s.end_time else None,
-            "duration_ms": duration_ms,
+            "duration_ms": _calc_duration_ms(s.start_time, s.end_time),
             "status": s.status,
             "status_message": s.status_message,
             "attributes": s.attributes or {},

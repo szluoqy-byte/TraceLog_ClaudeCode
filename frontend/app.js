@@ -64,16 +64,42 @@ async function loadSampleData() {
   const res = await fetch('/static/sample_trace.json');
   const data = await res.json();
   const items = Array.isArray(data) ? data : [data];
-  for (const item of items) {
-    await fetch(API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(item),
-    });
-  }
+  await Promise.all(items.map(item => fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(item),
+  })));
 }
 
 // ─── Views ──────────────────────────────────────────────────────────────────
+
+function renderTraceRow(t) {
+  return `
+    <tr>
+      <td class="trace-name" data-id="${t.trace_id}">${escapeHtml(t.name)}</td>
+      <td>${statusBadge(t.status)}</td>
+      <td class="mono">${formatDuration(t.duration_ms)}</td>
+      <td class="mono">${t.span_count}</td>
+      <td class="mono">${t.total_tokens.toLocaleString()}</td>
+      <td class="mono">${shortTime(t.start_time)}</td>
+      <td><button class="btn btn-del" data-id="${t.trace_id}" style="padding:4px 10px;font-size:11px;">Delete</button></td>
+    </tr>`;
+}
+
+function bindTraceRowEvents(container) {
+  container.querySelectorAll('.trace-name').forEach(el => {
+    el.addEventListener('click', () => renderTraceDetail(el.dataset.id));
+  });
+  container.querySelectorAll('.btn-del').forEach(el => {
+    el.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (confirm('Delete this trace?')) {
+        await deleteTrace(el.dataset.id);
+        renderTraceList();
+      }
+    });
+  });
+}
 
 function renderLoading() {
   app.innerHTML = '<div class="loading"><div class="spinner"></div>Loading...</div>';
@@ -112,35 +138,11 @@ async function renderTraceList() {
         </tr>
       </thead>
       <tbody>
-        ${data.traces.map(t => `
-          <tr>
-            <td class="trace-name" data-id="${t.trace_id}">${escapeHtml(t.name)}</td>
-            <td>${statusBadge(t.status)}</td>
-            <td class="mono">${formatDuration(t.duration_ms)}</td>
-            <td class="mono">${t.span_count}</td>
-            <td class="mono">${t.total_tokens.toLocaleString()}</td>
-            <td class="mono">${shortTime(t.start_time)}</td>
-            <td><button class="btn btn-del" data-id="${t.trace_id}" style="padding:4px 10px;font-size:11px;">Delete</button></td>
-          </tr>
-        `).join('')}
+        ${data.traces.map(renderTraceRow).join('')}
       </tbody>
     </table>`;
 
-  // Event: click trace name
-  app.querySelectorAll('.trace-name').forEach(el => {
-    el.addEventListener('click', () => renderTraceDetail(el.dataset.id));
-  });
-
-  // Event: delete
-  app.querySelectorAll('.btn-del').forEach(el => {
-    el.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      if (confirm('Delete this trace?')) {
-        await deleteTrace(el.dataset.id);
-        renderTraceList();
-      }
-    });
-  });
+  bindTraceRowEvents(app);
 
   // Event: search
   let debounce;
@@ -148,33 +150,10 @@ async function renderTraceList() {
     clearTimeout(debounce);
     debounce = setTimeout(async () => {
       const result = await fetchTraces(e.target.value);
-      // Re-render table body only
       const tbody = app.querySelector('tbody');
       if (!tbody) return;
-      tbody.innerHTML = result.traces.map(t => `
-        <tr>
-          <td class="trace-name" data-id="${t.trace_id}">${escapeHtml(t.name)}</td>
-          <td>${statusBadge(t.status)}</td>
-          <td class="mono">${formatDuration(t.duration_ms)}</td>
-          <td class="mono">${t.span_count}</td>
-          <td class="mono">${t.total_tokens.toLocaleString()}</td>
-          <td class="mono">${shortTime(t.start_time)}</td>
-          <td><button class="btn btn-del" data-id="${t.trace_id}" style="padding:4px 10px;font-size:11px;">Delete</button></td>
-        </tr>
-      `).join('');
-      // Rebind
-      tbody.querySelectorAll('.trace-name').forEach(el => {
-        el.addEventListener('click', () => renderTraceDetail(el.dataset.id));
-      });
-      tbody.querySelectorAll('.btn-del').forEach(el => {
-        el.addEventListener('click', async (ev) => {
-          ev.stopPropagation();
-          if (confirm('Delete this trace?')) {
-            await deleteTrace(el.dataset.id);
-            renderTraceList();
-          }
-        });
-      });
+      tbody.innerHTML = result.traces.map(renderTraceRow).join('');
+      bindTraceRowEvents(tbody);
     }, 250);
   });
 }
@@ -264,7 +243,7 @@ async function renderTraceDetail(traceId) {
         ${rulerMarks.map(m => `<span style="left:calc(220px + (100% - 232px) * ${m.pct} / 100)">${m.label}</span>`).join('')}
       </div>
       <div class="timeline-rows">
-        ${flatSpans.map((s, i) => {
+        ${flatSpans.map((s) => {
           const sStart = s.start_time ? new Date(s.start_time).getTime() : traceStart;
           const sEnd = s.end_time ? new Date(s.end_time).getTime() : sStart + 100;
           const left = ((sStart - traceStart) / totalMs) * 100;
@@ -272,7 +251,7 @@ async function renderTraceDetail(traceId) {
           const barClass = s.status === 'ERROR' ? 'bar-error' : `bar-${s.span_kind.toLowerCase()}`;
           const indent = s.depth * 16;
           return `
-            <div class="timeline-row" data-idx="${i}">
+            <div class="timeline-row" data-span-id="${s.span_id}">
               <div class="span-label">
                 <span class="indent" style="width:${indent}px"></span>
                 ${kindBadge(s.span_kind)}
@@ -302,12 +281,12 @@ async function renderTraceDetail(traceId) {
   });
 
   // Span click handlers
+  const spanById = Object.fromEntries(flatSpans.map(s => [s.span_id, s]));
   app.querySelectorAll('.timeline-row').forEach(row => {
     row.addEventListener('click', () => {
       app.querySelectorAll('.timeline-row').forEach(r => r.classList.remove('selected'));
       row.classList.add('selected');
-      const idx = parseInt(row.dataset.idx);
-      renderSpanDetail(flatSpans[idx]);
+      renderSpanDetail(spanById[row.dataset.spanId]);
     });
   });
 
@@ -426,32 +405,22 @@ function renderOverviewTab(span) {
   `;
 }
 
-function renderPromptsTab(attrs) {
-  const prompts = attrs['llm.prompts'] || [];
-  if (prompts.length === 0) return '<p style="color:var(--text-muted)">No prompt data available</p>';
+function renderMessagesTab(attrs, attrKey, defaultRole) {
+  const messages = attrs[attrKey] || [];
+  if (messages.length === 0) return '<p style="color:var(--text-muted)">No data available</p>';
+  return messages.map(msg => `
+    <div class="message-block">
+      <div class="message-role message-role-${msg.role || defaultRole}">${escapeHtml(msg.role || 'unknown')}</div>
+      <div class="message-content">${escapeHtml(msg.content || '')}</div>
+    </div>`).join('');
+}
 
-  return prompts.map(msg => {
-    const roleClass = `message-role-${msg.role || 'user'}`;
-    return `
-      <div class="message-block">
-        <div class="message-role ${roleClass}">${escapeHtml(msg.role || 'unknown')}</div>
-        <div class="message-content">${escapeHtml(msg.content || '')}</div>
-      </div>`;
-  }).join('');
+function renderPromptsTab(attrs) {
+  return renderMessagesTab(attrs, 'llm.prompts', 'user');
 }
 
 function renderCompletionTab(attrs) {
-  const completions = attrs['llm.completions'] || [];
-  if (completions.length === 0) return '<p style="color:var(--text-muted)">No completion data available</p>';
-
-  return completions.map(msg => {
-    const roleClass = `message-role-${msg.role || 'assistant'}`;
-    return `
-      <div class="message-block">
-        <div class="message-role ${roleClass}">${escapeHtml(msg.role || 'unknown')}</div>
-        <div class="message-content">${escapeHtml(msg.content || '')}</div>
-      </div>`;
-  }).join('');
+  return renderMessagesTab(attrs, 'llm.completions', 'assistant');
 }
 
 function renderToolInputTab(attrs) {
