@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python run.py)",
+      "Bash(curl -s http://127.0.0.1:8079/api/v1/traces)",
+      "Bash(python -m json.tool)"
+    ]
+  }
+}

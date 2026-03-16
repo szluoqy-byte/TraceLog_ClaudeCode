@@ -1,0 +1,376 @@
+[
+  {
+    "trace_id": "trace_demo_001",
+    "name": "ReAct Agent - Weather Query",
+    "start_time": "2026-03-15T10:00:00Z",
+    "end_time": "2026-03-15T10:00:12.500Z",
+    "status": "OK",
+    "total_tokens": 0,
+    "total_cost": 0.0032,
+    "metadata": {
+      "agent_type": "ReAct",
+      "framework": "LangChain",
+      "user_query": "What's the weather in Beijing today and should I bring an umbrella?"
+    },
+    "spans": [
+      {
+        "span_id": "span_agent_root",
+        "parent_span_id": null,
+        "name": "ReActAgent.run",
+        "span_kind": "AGENT",
+        "start_time": "2026-03-15T10:00:00Z",
+        "end_time": "2026-03-15T10:00:12.500Z",
+        "status": "OK",
+        "attributes": {
+          "agent.name": "ReActWeatherAgent",
+          "agent.input": "What's the weather in Beijing today and should I bring an umbrella?"
+        }
+      },
+      {
+        "span_id": "span_llm_think_1",
+        "parent_span_id": "span_agent_root",
+        "name": "LLM Call - Initial Reasoning",
+        "span_kind": "LLM",
+        "start_time": "2026-03-15T10:00:00.100Z",
+        "end_time": "2026-03-15T10:00:02.300Z",
+        "status": "OK",
+        "attributes": {
+          "llm.vendor": "openai",
+          "llm.model": "gpt-4",
+          "llm.temperature": 0.0,
+          "llm.prompts": [
+            {"role": "system", "content": "You are a helpful assistant that uses tools to answer questions. Think step by step."},
+            {"role": "user", "content": "What's the weather in Beijing today and should I bring an umbrella?"}
+          ],
+          "llm.completions": [
+            {"role": "assistant", "content": "I need to check the current weather in Beijing. Let me use the weather tool to get this information.\n\nAction: get_weather\nAction Input: {\"city\": \"Beijing\", \"date\": \"today\"}"}
+          ],
+          "llm.usage.prompt_tokens": 125,
+          "llm.usage.completion_tokens": 48,
+          "llm.usage.total_tokens": 173
+        },
+        "events": [
+          {
+            "name": "prompt.sent",
+            "timestamp": "2026-03-15T10:00:00.100Z",
+            "attributes": {"token_count": 125}
+          },
+          {
+            "name": "completion.received",
+            "timestamp": "2026-03-15T10:00:02.300Z",
+            "attributes": {"token_count": 48}
+          }
+        ]
+      },
+      {
+        "span_id": "span_tool_weather",
+        "parent_span_id": "span_agent_root",
+        "name": "Tool Call - get_weather",
+        "span_kind": "TOOL",
+        "start_time": "2026-03-15T10:00:02.400Z",
+        "end_time": "2026-03-15T10:00:05.100Z",
+        "status": "OK",
+        "attributes": {
+          "tool.name": "get_weather",
+          "tool.input": {"city": "Beijing", "date": "today"},
+          "tool.output": {"temperature": "18°C", "condition": "Cloudy with light rain", "humidity": "78%", "precipitation_chance": "65%", "wind": "NE 12km/h"}
+        },
+        "events": [
+          {
+            "name": "tool.invocation",
+            "timestamp": "2026-03-15T10:00:02.400Z",
+            "attributes": {"tool": "get_weather"}
+          },
+          {
+            "name": "tool.response",
+            "timestamp": "2026-03-15T10:00:05.100Z",
+            "attributes": {"status": "success"}
+          }
+        ]
+      },
+      {
+        "span_id": "span_llm_think_2",
+        "parent_span_id": "span_agent_root",
+        "name": "LLM Call - Final Reasoning",
+        "span_kind": "LLM",
+        "start_time": "2026-03-15T10:00:05.200Z",
+        "end_time": "2026-03-15T10:00:08.800Z",
+        "status": "OK",
+        "attributes": {
+          "llm.vendor": "openai",
+          "llm.model": "gpt-4",
+          "llm.temperature": 0.0,
+          "llm.prompts": [
+            {"role": "system", "content": "You are a helpful assistant that uses tools to answer questions."},
+            {"role": "user", "content": "What's the weather in Beijing today and should I bring an umbrella?"},
+            {"role": "assistant", "content": "Action: get_weather\nAction Input: {\"city\": \"Beijing\", \"date\": \"today\"}"},
+            {"role": "tool", "content": "{\"temperature\": \"18°C\", \"condition\": \"Cloudy with light rain\", \"humidity\": \"78%\", \"precipitation_chance\": \"65%\", \"wind\": \"NE 12km/h\"}"}
+          ],
+          "llm.completions": [
+            {"role": "assistant", "content": "Based on the weather data for Beijing today:\n\n- Temperature: 18°C\n- Condition: Cloudy with light rain\n- Humidity: 78%\n- Precipitation chance: 65%\n\n**Yes, you should definitely bring an umbrella today!** There's a 65% chance of precipitation, and it's currently cloudy with light rain. The humidity is also quite high at 78%, which suggests the rainy conditions may persist throughout the day."}
+          ],
+          "llm.usage.prompt_tokens": 210,
+          "llm.usage.completion_tokens": 95,
+          "llm.usage.total_tokens": 305
+        }
+      },
+      {
+        "span_id": "span_chain_output",
+        "parent_span_id": "span_agent_root",
+        "name": "Output Formatting",
+        "span_kind": "CHAIN",
+        "start_time": "2026-03-15T10:00:08.900Z",
+        "end_time": "2026-03-15T10:00:09.100Z",
+        "status": "OK",
+        "attributes": {
+          "chain.type": "output_parser",
+          "chain.output": "Based on the weather data for Beijing today: Temperature 18°C, Cloudy with light rain, 65% precipitation chance. Yes, you should bring an umbrella!"
+        }
+      }
+    ]
+  },
+  {
+    "trace_id": "trace_demo_002",
+    "name": "RAG Agent - Document QA",
+    "start_time": "2026-03-15T11:00:00Z",
+    "end_time": "2026-03-15T11:00:18.200Z",
+    "status": "OK",
+    "total_cost": 0.0058,
+    "metadata": {
+      "agent_type": "RAG",
+      "framework": "LlamaIndex",
+      "user_query": "What are the key provisions of our employee handbook regarding remote work?"
+    },
+    "spans": [
+      {
+        "span_id": "span_rag_root",
+        "parent_span_id": null,
+        "name": "RAGAgent.query",
+        "span_kind": "AGENT",
+        "start_time": "2026-03-15T11:00:00Z",
+        "end_time": "2026-03-15T11:00:18.200Z",
+        "status": "OK",
+        "attributes": {
+          "agent.name": "DocumentQAAgent",
+          "agent.input": "What are the key provisions of our employee handbook regarding remote work?"
+        }
+      },
+      {
+        "span_id": "span_rag_embed",
+        "parent_span_id": "span_rag_root",
+        "name": "LLM Call - Query Embedding",
+        "span_kind": "LLM",
+        "start_time": "2026-03-15T11:00:00.200Z",
+        "end_time": "2026-03-15T11:00:01.500Z",
+        "status": "OK",
+        "attributes": {
+          "llm.vendor": "openai",
+          "llm.model": "text-embedding-3-small",
+          "llm.prompts": [{"role": "user", "content": "What are the key provisions of our employee handbook regarding remote work?"}],
+          "llm.completions": [{"role": "assistant", "content": "[embedding vector: 1536 dimensions]"}],
+          "llm.usage.prompt_tokens": 15,
+          "llm.usage.completion_tokens": 0,
+          "llm.usage.total_tokens": 15
+        }
+      },
+      {
+        "span_id": "span_rag_retrieve",
+        "parent_span_id": "span_rag_root",
+        "name": "Retriever - Vector Search",
+        "span_kind": "RETRIEVER",
+        "start_time": "2026-03-15T11:00:01.600Z",
+        "end_time": "2026-03-15T11:00:03.800Z",
+        "status": "OK",
+        "attributes": {
+          "retriever.type": "vector_store",
+          "retriever.top_k": 5,
+          "retriever.results_count": 3,
+          "retriever.documents": [
+            {"id": "doc_42", "score": 0.92, "title": "Remote Work Policy - Section 4.2"},
+            {"id": "doc_17", "score": 0.87, "title": "Employee Benefits - Work From Home"},
+            {"id": "doc_55", "score": 0.81, "title": "IT Security - Remote Access Guidelines"}
+          ]
+        }
+      },
+      {
+        "span_id": "span_rag_llm",
+        "parent_span_id": "span_rag_root",
+        "name": "LLM Call - Answer Generation",
+        "span_kind": "LLM",
+        "start_time": "2026-03-15T11:00:04.000Z",
+        "end_time": "2026-03-15T11:00:17.500Z",
+        "status": "OK",
+        "attributes": {
+          "llm.vendor": "anthropic",
+          "llm.model": "claude-sonnet-4-6",
+          "llm.temperature": 0.2,
+          "llm.prompts": [
+            {"role": "system", "content": "Answer the user's question based on the following documents. Cite your sources."},
+            {"role": "user", "content": "Context:\n[Doc 42] Remote Work Policy Section 4.2: Employees may work remotely up to 3 days per week with manager approval...\n[Doc 17] Employee Benefits: Home office stipend of $500/year for remote workers...\n[Doc 55] IT Security: All remote access must use company VPN...\n\nQuestion: What are the key provisions of our employee handbook regarding remote work?"}
+          ],
+          "llm.completions": [
+            {"role": "assistant", "content": "Based on the employee handbook, here are the key provisions regarding remote work:\n\n1. **Eligibility**: Employees may work remotely up to 3 days per week, subject to manager approval [Section 4.2]\n2. **Home Office Support**: A $500/year stipend is available for remote workers to set up their home office [Benefits Policy]\n3. **Security Requirements**: All remote access must be conducted through the company VPN [IT Security Guidelines]\n\nPlease consult your manager for specific team policies."}
+          ],
+          "llm.usage.prompt_tokens": 380,
+          "llm.usage.completion_tokens": 120,
+          "llm.usage.total_tokens": 500
+        }
+      },
+      {
+        "span_id": "span_rag_output",
+        "parent_span_id": "span_rag_root",
+        "name": "Output Post-processing",
+        "span_kind": "CHAIN",
+        "start_time": "2026-03-15T11:00:17.600Z",
+        "end_time": "2026-03-15T11:00:18.100Z",
+        "status": "OK",
+        "attributes": {
+          "chain.type": "citation_formatter"
+        }
+      }
+    ]
+  },
+  {
+    "trace_id": "trace_demo_003",
+    "name": "Multi-Tool Agent - Data Analysis (Error)",
+    "start_time": "2026-03-15T14:00:00Z",
+    "end_time": "2026-03-15T14:00:25.300Z",
+    "status": "ERROR",
+    "total_cost": 0.0041,
+    "metadata": {
+      "agent_type": "Multi-Tool",
+      "framework": "CrewAI",
+      "user_query": "Analyze the Q4 sales data and generate a summary report"
+    },
+    "spans": [
+      {
+        "span_id": "span_multi_root",
+        "parent_span_id": null,
+        "name": "MultiToolAgent.execute",
+        "span_kind": "AGENT",
+        "start_time": "2026-03-15T14:00:00Z",
+        "end_time": "2026-03-15T14:00:25.300Z",
+        "status": "ERROR",
+        "status_message": "Tool execution failed: database connection timeout",
+        "attributes": {
+          "agent.name": "DataAnalysisAgent",
+          "agent.input": "Analyze the Q4 sales data and generate a summary report"
+        }
+      },
+      {
+        "span_id": "span_multi_llm1",
+        "parent_span_id": "span_multi_root",
+        "name": "LLM Call - Task Planning",
+        "span_kind": "LLM",
+        "start_time": "2026-03-15T14:00:00.200Z",
+        "end_time": "2026-03-15T14:00:03.100Z",
+        "status": "OK",
+        "attributes": {
+          "llm.vendor": "openai",
+          "llm.model": "gpt-4",
+          "llm.temperature": 0.1,
+          "llm.prompts": [
+            {"role": "system", "content": "You are a data analyst agent. Plan and execute analysis tasks."},
+            {"role": "user", "content": "Analyze the Q4 sales data and generate a summary report"}
+          ],
+          "llm.completions": [
+            {"role": "assistant", "content": "I'll analyze the Q4 sales data step by step:\n1. First, query the database for Q4 sales records\n2. Calculate key metrics (total revenue, growth rate, top products)\n3. Generate a summary report\n\nAction: sql_query\nAction Input: {\"query\": \"SELECT * FROM sales WHERE quarter = 'Q4' AND year = 2025\"}"}
+          ],
+          "llm.usage.prompt_tokens": 95,
+          "llm.usage.completion_tokens": 78,
+          "llm.usage.total_tokens": 173
+        }
+      },
+      {
+        "span_id": "span_multi_tool_sql",
+        "parent_span_id": "span_multi_root",
+        "name": "Tool Call - sql_query",
+        "span_kind": "TOOL",
+        "start_time": "2026-03-15T14:00:03.200Z",
+        "end_time": "2026-03-15T14:00:08.500Z",
+        "status": "OK",
+        "attributes": {
+          "tool.name": "sql_query",
+          "tool.input": {"query": "SELECT * FROM sales WHERE quarter = 'Q4' AND year = 2025"},
+          "tool.output": {"rows": 1247, "columns": ["date", "product", "amount", "region"]}
+        }
+      },
+      {
+        "span_id": "span_multi_llm2",
+        "parent_span_id": "span_multi_root",
+        "name": "LLM Call - Analysis",
+        "span_kind": "LLM",
+        "start_time": "2026-03-15T14:00:08.600Z",
+        "end_time": "2026-03-15T14:00:13.200Z",
+        "status": "OK",
+        "attributes": {
+          "llm.vendor": "openai",
+          "llm.model": "gpt-4",
+          "llm.temperature": 0.1,
+          "llm.prompts": [
+            {"role": "system", "content": "You are a data analyst agent."},
+            {"role": "user", "content": "Analyze Q4 sales data"},
+            {"role": "assistant", "content": "Action: sql_query"},
+            {"role": "tool", "content": "1247 rows returned"}
+          ],
+          "llm.completions": [
+            {"role": "assistant", "content": "Now let me calculate aggregated metrics.\n\nAction: sql_query\nAction Input: {\"query\": \"SELECT region, SUM(amount) as total, COUNT(*) as deals FROM sales WHERE quarter='Q4' GROUP BY region\"}"}
+          ],
+          "llm.usage.prompt_tokens": 250,
+          "llm.usage.completion_tokens": 65,
+          "llm.usage.total_tokens": 315
+        }
+      },
+      {
+        "span_id": "span_multi_tool_sql2",
+        "parent_span_id": "span_multi_root",
+        "name": "Tool Call - sql_query (aggregation)",
+        "span_kind": "TOOL",
+        "start_time": "2026-03-15T14:00:13.300Z",
+        "end_time": "2026-03-15T14:00:23.300Z",
+        "status": "ERROR",
+        "status_message": "Database connection timeout after 10000ms",
+        "attributes": {
+          "tool.name": "sql_query",
+          "tool.input": {"query": "SELECT region, SUM(amount) as total, COUNT(*) as deals FROM sales WHERE quarter='Q4' GROUP BY region"},
+          "tool.error": "ConnectionTimeoutError: Database connection timed out after 10000ms. The database server at db.internal:5432 did not respond."
+        },
+        "events": [
+          {
+            "name": "tool.invocation",
+            "timestamp": "2026-03-15T14:00:13.300Z",
+            "attributes": {}
+          },
+          {
+            "name": "tool.error",
+            "timestamp": "2026-03-15T14:00:23.300Z",
+            "attributes": {"error.type": "ConnectionTimeoutError", "error.message": "Database connection timed out"}
+          }
+        ]
+      },
+      {
+        "span_id": "span_multi_llm3",
+        "parent_span_id": "span_multi_root",
+        "name": "LLM Call - Error Handling",
+        "span_kind": "LLM",
+        "start_time": "2026-03-15T14:00:23.400Z",
+        "end_time": "2026-03-15T14:00:25.200Z",
+        "status": "OK",
+        "attributes": {
+          "llm.vendor": "openai",
+          "llm.model": "gpt-4",
+          "llm.temperature": 0.1,
+          "llm.prompts": [
+            {"role": "tool", "content": "Error: Database connection timed out after 10000ms"}
+          ],
+          "llm.completions": [
+            {"role": "assistant", "content": "I'm sorry, I was unable to complete the analysis. The database connection timed out while trying to aggregate the Q4 sales data by region. Please try again later or check the database server status."}
+          ],
+          "llm.usage.prompt_tokens": 180,
+          "llm.usage.completion_tokens": 42,
+          "llm.usage.total_tokens": 222
+        }
+      }
+    ]
+  }
+]
